@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance Micro Tools Pro</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#0f172a;
+  --card:#1e293b;
+  --accent:#3b82f6;
+  --text:#e2e8f0;
+}
+
+body {
+  font-family:'Inter', sans-serif;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+}
+
+header {
+  padding:1.5rem;
+  text-align:center;
+  font-size:1.5rem;
+  font-weight:600;
+}
+
+.container {
+  max-width:1100px;
+  margin:auto;
+  padding:1rem;
+}
+
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(320px,1fr));
+  gap:1rem;
+}
+
+.tool {
+  background:var(--card);
+  padding:1.25rem;
+  border-radius:16px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.3);
+}
+
+input {
+  width:100%;
+  padding:0.6rem;
+  margin:0.4rem 0;
+  border-radius:8px;
+  border:none;
+  background:#334155;
+  color:white;
+}
+
+button {
+  width:100%;
+  padding:0.7rem;
+  margin-top:0.5rem;
+  border:none;
+  border-radius:8px;
+  background:var(--accent);
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.result {
+  margin-top:0.75rem;
+  font-weight:600;
+}
+
+.toggle {
+  position:fixed;
+  top:10px;
+  right:10px;
+  cursor:pointer;
+  background:#334155;
+  padding:0.5rem 1rem;
+  border-radius:8px;
+}
+
+.light {
+  --bg:#f1f5f9;
+  --card:#ffffff;
+  --text:#0f172a;
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:0.8rem;
+}
+
+th, td {
+  padding:6px;
+  text-align:center;
+}
+
+th {
+  background:#334155;
+}
+
+tr:nth-child(even) {
+  background:rgba(255,255,255,0.05);
+}
+</style>
+</head>
+
+<body>
+
+<div class="toggle" onclick="toggleTheme()">Toggle Theme</div>
+
+<header>💰 Finance Micro Tools Pro</header>
+
+<div class="container">
+<div class="grid">
+
+<!-- Budget -->
+<div class="tool">
+  <h2>Budget Planner</h2>
+  <input id="income" type="number" placeholder="Income">
+  <input id="expenses" type="number" placeholder="Expenses">
+  <button onclick="calculateBudget()">Calculate</button>
+  <div class="result" id="budgetResult"></div>
+  <canvas id="budgetChart"></canvas>
+</div>
+
+<!-- Debt -->
+<div class="tool">
+  <h2>Debt Payoff</h2>
+  <input id="debt" type="number" placeholder="Debt">
+  <input id="payment" type="number" placeholder="Monthly Payment">
+  <input id="interest" type="number" placeholder="Interest %">
+  <button onclick="calculateDebt()">Calculate</button>
+  <div class="result" id="debtResult"></div>
+
+  <div style="overflow:auto; max-height:200px;">
+    <table id="amortTable">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Interest</th>
+          <th>Principal</th>
+          <th>Balance</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <button onclick="exportCSV()">Export CSV</button>
+</div>
+
+<!-- Interest -->
+<div class="tool">
+  <h2>Compound Interest</h2>
+  <input id="principal" type="number" placeholder="Principal">
+  <input id="rate" type="number" placeholder="Rate %">
+  <input id="years" type="number" placeholder="Years">
+  <button onclick="calculateInterest()">Calculate</button>
+  <canvas id="interestChart"></canvas>
+</div>
+
+<!-- Subscriptions -->
+<div class="tool">
+  <h2>Subscriptions</h2>
+
+  <div id="subs"></div>
+
+  <button onclick="addSub()">+ Add Subscription</button>
+  <button onclick="calculateSubscription()">Calculate</button>
+
+  <div class="result" id="subResult"></div>
+</div>
+
+</div>
+</div>
+
+<script>
+let budgetChart;
+let interestChart;
+
+/* ---------- UTIL ---------- */
+function formatMoney(num) {
+  return `$${Number(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+}
+
+/* ---------- THEME ---------- */
+function toggleTheme() {
+  document.body.classList.toggle('light');
+}
+
+/* ---------- BUDGET ---------- */
+function calculateBudget() {
+  const income = +incomeEl.value;
+  const expenses = +expensesEl.value;
+  const remaining = income - expenses;
+
+  budgetResult.innerText = `Remaining: ${formatMoney(remaining)}`;
+
+  if (budgetChart) budgetChart.destroy();
+
+  budgetChart = new Chart(budgetChartEl, {
+    type:'doughnut',
+    data:{
+      labels:['Expenses','Remaining'],
+      datasets:[{ data:[expenses, remaining] }]
+    }
+  });
+
+  localStorage.setItem('budget', JSON.stringify({income, expenses}));
+}
+
+/* ---------- DEBT ---------- */
+function calculateDebt() {
+  let balance = +debtEl.value;
+  const payment = +paymentEl.value;
+  const rate = +interestEl.value / 100 / 12;
+
+  let months = 0;
+  let schedule = [];
+
+  while (balance > 0 && months < 600) {
+    const interest = balance * rate;
+    const principal = payment - interest;
+    balance -= principal;
+
+    schedule.push({
+      month: months + 1,
+      interest,
+      principal,
+      balance: Math.max(balance, 0)
+    });
+
+    months++;
+  }
+
+  debtResult.innerHTML = `Payoff Time: ${months} months`;
+
+  renderTable(schedule);
+}
+
+/* ---------- TABLE ---------- */
+function renderTable(data) {
+  const tbody = document.querySelector("#amortTable tbody");
+  tbody.innerHTML = "";
+
+  data.forEach(row => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${row.month}</td>
+        <td>${formatMoney(row.interest)}</td>
+        <td>${formatMoney(row.principal)}</td>
+        <td>${formatMoney(row.balance)}</td>
+      </tr>
+    `;
+  });
+
+  window.currentSchedule = data;
+}
+
+/* ---------- CSV EXPORT ---------- */
+function exportCSV() {
+  if (!window.currentSchedule) return;
+
+  let csv = "Month,Interest,Principal,Balance\n";
+
+  currentSchedule.forEach(r => {
+    csv += `${r.month},${r.interest.toFixed(2)},${r.principal.toFixed(2)},${r.balance.toFixed(2)}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "amortization.csv";
+  a.click();
+}
+
+/* ---------- INTEREST ---------- */
+function calculateInterest() {
+  const P = +principalEl.value;
+  const r = +rateEl.value / 100;
+  const t = +yearsEl.value;
+
+  let data = [];
+  for (let i = 0; i <= t; i++) {
+    data.push(P * Math.pow(1 + r, i));
+  }
+
+  if (interestChart) interestChart.destroy();
+
+  interestChart = new Chart(interestChartEl, {
+    type:'line',
+    data:{
+      labels:data.map((_,i)=>i),
+      datasets:[{ label:'Growth', data }]
+    }
+  });
+}
+
+/* ---------- SUBSCRIPTIONS ---------- */
+function addSub(value = "") {
+  const div = document.createElement("div");
+  div.innerHTML = `
+    <input type="number" class="subItem" placeholder="Monthly Cost" value="${value}">
+  `;
+  subs.appendChild(div);
+}
+
+function calculateSubscription() {
+  const items = document.querySelectorAll(".subItem");
+  let total = 0;
+
+  items.forEach(i => total += +i.value || 0);
+
+  subResult.innerText =
+    `Monthly: ${formatMoney(total)} | Yearly: ${formatMoney(total * 12)}`;
+}
+
+/* ---------- INIT ---------- */
+window.onload = () => {
+  const saved = JSON.parse(localStorage.getItem('budget'));
+  if (saved) {
+    incomeEl.value = saved.income;
+    expensesEl.value = saved.expenses;
+  }
+
+  addSub(); // start with one row
+};
+
+/* ---------- DOM BINDS ---------- */
+const incomeEl = document.getElementById('income');
+const expensesEl = document.getElementById('expenses');
+const budgetResult = document.getElementById('budgetResult');
+const budgetChartEl = document.getElementById('budgetChart');
+
+const debtEl = document.getElementById('debt');
+const paymentEl = document.getElementById('payment');
+const interestEl = document.getElementById('interest');
+const debtResult = document.getElementById('debtResult');
+
+const principalEl = document.getElementById('principal');
+const rateEl = document.getElementById('rate');
+const yearsEl = document.getElementById('years');
+const interestChartEl = document.getElementById('interestChart');
+
+const subs = document.getElementById('subs');
+const subResult = document.getElementById('subResult');
+</script>
+
+</body>
+</html>
