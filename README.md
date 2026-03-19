@@ -2,8 +2,6 @@
 
 A modern, lightweight financial dashboard built with **vanilla JavaScript, HTML, and CSS** that provides powerful tools for budgeting, debt payoff analysis, investment growth, and subscription tracking.
 
-🔗 **Live Demo (GitHub Pages):** *Add your link here*
-
 ---
 
 ## 🚀 Features
